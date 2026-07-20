@@ -34,6 +34,38 @@ Spiral Slim uses enterprise managed policies to disable telemetry, bloat, and un
 >
 > The Linux version of Spiral Slim is still fully supported, and is the right tool if you want fine-grained control over individual policies, custom presets, or your own DoH templates beyond what Origin provides out of the box.
 
+## TL;DR — three steps
+
+1. **Clone it** (source only, nothing to install):
+   ```bash
+   git clone https://github.com/cococool13/Spiral-Slim.git && cd Spiral-Slim
+   ```
+2. **Apply a preset** for your OS and browser (or run without `--import` for the interactive UI and pick toggles yourself):
+
+   | OS | Command |
+   |----|---------|
+   | Linux | `sudo python3 spiral-slim-linux.py --import "./Presets/Brave/Maximum Privacy Preset.json"` |
+   | macOS | `sudo python3 spiral-slim-mac.py --import "./Presets/Brave/Maximum Privacy Preset.json"` |
+   | Windows | `.\SpiralSlim.ps1` *(run as admin, then click Import → pick a preset → Apply)* |
+
+   Swap `Brave` for `Chrome`, `Edge`, or `Firefox` in the preset path — and add `--browser chrome` / `--browser edge` / `--browser firefox` (Windows: `-Browser chrome`) to target that browser.
+3. **Restart the browser** and verify at `brave://policy`, `chrome://policy`, `edge://policy`, or `about:policies` (Firefox).
+
+Undo everything at any time with `--reset` (or the Reset button on Windows).
+
+### Which preset?
+
+| Preset | Pick it if you want… | Trade-offs |
+|--------|---------------------|------------|
+| **Maximum Privacy** | Every tracking, telemetry, and data side channel closed | Breaks convenience: no autofill/password manager/sync, notifications and location blocked, Safe Browsing off — for users who know what they're doing |
+| **Balanced Privacy** | Strong privacy that daily driving won't notice | Keeps password manager, autofill, and basic Safe Browsing |
+| **Performance Focused** | A faster, leaner browser without privacy extremes | Leaves prefetch on (it makes browsing faster) |
+| **Debloat** *(Edge & Firefox)* | Just the junk gone — feeds, ads, AI, upsells | Touches nothing protective (SmartScreen etc. stay on) |
+| **Developer** *(Brave & Chrome)* | Telemetry/ads off but DevTools and tooling untouched | — |
+| **Strict Parental Controls** | A locked-down browser for kids, schools, kiosks | Blocks private/guest modes, extensions, adult content; forces SafeSearch + family DNS |
+
+Presets are starting points — import one in the interactive UI, adjust toggles, then Apply. Hover any option (Windows) or read the row names (TUI) to see exactly which policy it writes.
+
 <div align="center">
 
 ---
