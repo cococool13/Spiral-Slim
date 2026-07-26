@@ -145,8 +145,8 @@ before it is stapled will not match what people download.
   [`SECURITY.md`](../SECURITY.md) says there never will be — do not add one
   without changing that document first. Windows users build from source, the
   same as everyone else.
-- **Nothing is verified on real Windows.** The code is written and tested,
-  but it has only ever run on macOS. See below.
+- **UAC and Brave itself are still unverified on Windows.** Everything else
+  runs on a real Windows machine in CI on every push. See below.
 - **No auto-updater.** Spiral Wallpaper has one; Slim has no updater plugin
   and no signing key for update artifacts. Adding it means adding a second
   trust root, which is a decision, not a chore.
@@ -189,24 +189,30 @@ Two smaller differences worth knowing, both of which the UI already handles:
 - **Replace, not merge**, on both platforms. Applying makes the managed set
   exactly what the plan says. The review counts the removals first.
 
-### What is not verified
+### What Windows CI proves, and what it does not
 
-**None of the Windows code has ever run on Windows.** It was written on a Mac,
-where the Windows branches cannot even be compiled — `cargo check
---target x86_64-pc-windows-msvc` needs `llvm-rc`, which is not part of a
-normal macOS toolchain.
+The `windows-latest` job in `.github/workflows/ci.yml` is where this code
+actually runs. Every push, on a real Windows machine, it:
 
-That shaped the design rather than being noted afterwards. Everything that can
-be a pure function is one, so macOS compiles and tests it: the PowerShell
-quoter, the elevation command builder, entrypoint selection, the required-file
-list, and every string a person reads. Fifteen Rust tests cover the Windows
-paths, including that a hostile argument cannot escape the elevation command.
+- runs the Python suite, then `--detect` with no elevation;
+- exports a plan, previews it, **applies it to the real registry**, checks
+  every written value against the plan, and resets;
+- compiles the `#[cfg(target_os = "windows")]` branches and runs
+  `cargo test` — 61 tests;
+- builds `Spiral Slim_1.0.0_x64-setup.exe` and `_x64_en-US.msi`, uploaded as
+  a build artifact.
 
-What remains untested is the part that cannot be faked from here: that
-PowerShell accepts the command, that UAC behaves as expected, that the
-redirect files come back readable, and that Brave picks the policies up. The
-first person to run `pnpm tauri build` on a Windows machine is finding that
-out. Treat it accordingly.
+Last green run: **18 policies verified in HKLM, then removed by `--reset`.**
+
+Two things CI still cannot reach, and no amount of it will:
+
+- **An interactive UAC prompt.** The runner is already elevated, so
+  `Start-Process -Verb RunAs` is never exercised the way a person exercises
+  it. The command it builds is tested; the dialog is not.
+- **Brave reading the policies.** No Brave on the runner. `brave://policy`
+  showing the expected values is still unconfirmed by anything here.
+
+Everything between those two is exercised on Windows on every push.
 
 
 ## How it reaches SlimBrave Neo

@@ -132,11 +132,14 @@ runs on Windows as well as macOS — same wizard, same profiles, same
 confirmation gate. It drives `slimbrave-windows.py` and raises UAC instead of
 the macOS authorisation dialog.
 
-**It has never been run on Windows.** It was developed on a Mac, so the
-Windows code paths are tested but unexercised. Build it yourself with
-`cd desktop && pnpm tauri build`, and prefer `--detect` (read-only, no UAC)
-as the first thing you try. There is no Windows binary to download and
-[`SECURITY.md`](SECURITY.md) says there never will be.
+Every push runs it on a real Windows machine in CI: the Python suite,
+`--detect`, then a plan applied to the actual registry with all 18 values
+checked and removed again, `cargo test`, and an NSIS installer built. What CI
+cannot reach is an interactive UAC prompt — the runner is already elevated —
+and Brave itself reading the policies, since no Brave is installed there.
+
+Build it yourself with `cd desktop && pnpm tauri build`. There is no Windows
+binary to download and [`SECURITY.md`](SECURITY.md) says there never will be.
 
 
 ---
