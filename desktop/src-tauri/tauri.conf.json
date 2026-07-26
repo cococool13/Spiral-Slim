@@ -28,10 +28,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "app",
-      "dmg"
-    ],
+    "targets": "all",
     "category": "Utility",
     "copyright": "Spiral. Source-available under the SlimBrave Neo licence.",
     "shortDescription": "Configure Brave's privacy policies, with the change shown first.",
@@ -42,6 +39,7 @@
     },
     "resources": {
       "../../slimbrave-mac.py": "slimbrave/slimbrave-mac.py",
+      "../../slimbrave-windows.py": "slimbrave/slimbrave-windows.py",
       "../../slimbrave_catalog.py": "slimbrave/slimbrave_catalog.py",
       "../../browser_collection.py": "slimbrave/browser_collection.py",
       "../../browser_collection": "slimbrave/browser_collection",

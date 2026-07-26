@@ -4,9 +4,10 @@ A local, privacy-first desktop wizard for configuring Brave through the
 SlimBrave Neo source that lives one folder up.
 
 Spiral Slim contains **no policy logic of its own**. It detects, describes,
-previews, and — only after you confirm — asks the existing `slimbrave-mac.py`
-entrypoint to apply a bundled profile. Every colour and font comes from
-`/brand`.
+previews, and — only after you confirm — asks the existing SlimBrave Neo
+entrypoint for the platform (`slimbrave-mac.py` or `slimbrave-windows.py`) to
+apply a bundled profile. Runs on macOS and Windows. Every colour and font
+comes from `/brand`.
 
 ## What it does
 
@@ -27,17 +28,20 @@ edge and the control is there, or use the arrow keys.
    is written and nothing is elevated until you tick the confirmation and
    choose Apply.
 4. **All set** — states what changed, how to check it in `brave://policy`, and
-   how to undo it. If the macOS Configuration Profile still needs approving,
-   it says so and gives the exact System Settings path.
+   how to undo it. On macOS, if the Configuration Profile still needs
+   approving, it says so and gives the exact System Settings path; on Windows
+   the registry is already persistent and it says that instead.
 
 ## What it does not do
 
 - No network access. There is no HTTP client in the dependency tree.
 - No accounts, telemetry, background process, or browser extension.
-- No password field. Elevation goes through the macOS authorisation dialog,
-  which macOS presents and macOS reads.
-- No policy writing in the UI layer. `slimbrave-mac.py` owns every path,
-  privilege check, plist, Configuration Profile, and prefs repair.
+- No password field. Elevation goes through the operating system's own
+  dialog — the macOS authorisation prompt, or UAC on Windows — which the OS
+  presents and the OS reads.
+- No policy writing in the UI layer. The platform entrypoint owns every path,
+  privilege check, plist or registry write, Configuration Profile, and prefs
+  repair.
 
 ## Commands
 
@@ -47,7 +51,7 @@ pnpm typecheck       # tsc --noEmit
 pnpm test            # vitest run — wizard invariants
 pnpm build           # hex-token check + tsc + vite build
 pnpm tauri dev       # the native app
-pnpm tauri build     # macOS bundle
+pnpm tauri build     # native bundle for the host platform
 ```
 
 ```bash
@@ -137,23 +141,73 @@ before it is stapled will not match what people download.
 
 ### Not done, and deliberately
 
-- **macOS only — the app, not the profiles.** Since `slimbrave-windows.py`
-  landed, the profiles in `profiles/` apply on Windows too; what is still
-  macOS-only is this GUI. It shells out to `slimbrave-mac.py` and elevates
-  through macOS's authorization dialog, and neither has a Windows equivalent
-  here yet. A Windows build would need `bridge.rs` to select the entrypoint
-  by OS, `elevate.rs` to raise a UAC prompt instead of running `osascript`,
-  and an NSIS target. The plan interface is already platform-neutral, so that
-  is the smaller half of the work.
 - **No Windows or Linux binary of any kind**, and
   [`SECURITY.md`](../SECURITY.md) says there never will be — do not add one
-  without changing that document first.
+  without changing that document first. Windows users build from source, the
+  same as everyone else.
+- **Nothing is verified on real Windows.** The code is written and tested,
+  but it has only ever run on macOS. See below.
 - **No auto-updater.** Spiral Wallpaper has one; Slim has no updater plugin
   and no signing key for update artifacts. Adding it means adding a second
   trust root, which is a decision, not a chore.
-- **macOS only.** `slimbrave-linux.py` exists but detection, elevation and
-  the Configuration Profile path are all macOS. Bundle targets are `app`
-  and `dmg` only.
+- **No Linux build.** `slimbrave-linux.py` exists as a CLI, but the app has
+  no Linux detection or elevation path and `entrypoint_for` refuses the
+  platform rather than guessing.
+
+## Windows
+
+The app builds and runs on Windows as well as macOS. Same wizard, same
+profiles, same confirmation gate; three things differ underneath.
+
+| | macOS | Windows |
+| --- | --- | --- |
+| Entrypoint | `slimbrave-mac.py` | `slimbrave-windows.py` |
+| Elevation | `osascript … with administrator privileges` | `Start-Process -Verb RunAs` (UAC) |
+| Policy lands in | `/Library/Managed Preferences` | `HKLM\SOFTWARE\Policies\BraveSoftware\Brave` |
+
+Neither platform ever sees a password: the OS owns its own dialog, and the app
+only learns whether the command ran.
+
+```bash
+cd desktop
+pnpm install
+pnpm tauri dev
+pnpm tauri build     # produces an NSIS installer and an MSI on Windows
+```
+
+Needs Node 22+, pnpm, Rust via rustup, and the Microsoft C++ Build Tools.
+Python 3 must be installed — the app looks for the `py` launcher, then
+`python3.exe` / `python.exe` / `py.exe` on PATH, and says so plainly if it
+finds none.
+
+Two smaller differences worth knowing, both of which the UI already handles:
+
+- **No Configuration Profile step.** The registry is persistent, so applying
+  finishes when the command returns. The "one step left" screen is macOS-only,
+  and the Windows wording says so instead of sending someone to look for
+  System Settings.
+- **Replace, not merge**, on both platforms. Applying makes the managed set
+  exactly what the plan says. The review counts the removals first.
+
+### What is not verified
+
+**None of the Windows code has ever run on Windows.** It was written on a Mac,
+where the Windows branches cannot even be compiled — `cargo check
+--target x86_64-pc-windows-msvc` needs `llvm-rc`, which is not part of a
+normal macOS toolchain.
+
+That shaped the design rather than being noted afterwards. Everything that can
+be a pure function is one, so macOS compiles and tests it: the PowerShell
+quoter, the elevation command builder, entrypoint selection, the required-file
+list, and every string a person reads. Fifteen Rust tests cover the Windows
+paths, including that a hostile argument cannot escape the elevation command.
+
+What remains untested is the part that cannot be faked from here: that
+PowerShell accepts the command, that UAC behaves as expected, that the
+redirect files come back readable, and that Brave picks the policies up. The
+first person to run `pnpm tauri build` on a Windows machine is finding that
+out. Treat it accordingly.
+
 
 ## How it reaches SlimBrave Neo
 

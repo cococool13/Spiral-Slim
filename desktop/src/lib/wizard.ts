@@ -25,6 +25,7 @@ import type {
   ProfileCatalog,
   ResetOutcome,
 } from "./contract";
+import { deviceNoun } from "./platform";
 
 export const STEPS = ["welcome", "profile", "review", "done"] as const;
 export type Step = (typeof STEPS)[number];
@@ -36,11 +37,13 @@ export const RECOMMENDED_PROFILE_ID = "balanced-daily";
 export const CUSTOM_PROFILE_ID = "custom";
 
 /**
- * Applying policy goes through the platform SlimBrave entrypoint. Only the
- * macOS entrypoint exposes the plan interface today, so every other platform
- * is gated off with a reason rather than shown a button that cannot work.
+ * Applying policy goes through the platform SlimBrave entrypoint. Both the
+ * macOS and Windows entrypoints expose the plan interface and validate a plan
+ * through the same `browser_collection.plan`, so both can be driven from
+ * here. Anything else is gated off with a reason rather than shown a button
+ * that cannot work.
  */
-export const APPLY_PLATFORMS: readonly Platform[] = ["macos"];
+export const APPLY_PLATFORMS: readonly Platform[] = ["macos", "windows"];
 
 export type BusyChannel =
   | "detection"
@@ -154,7 +157,7 @@ export function capabilityFor(detection: DetectionReport | null): Capability {
       canPreview: false,
       canApply: false,
       reason:
-        `Spiral Slim applies Brave policies on macOS only. On ` +
+        `Spiral Slim applies Brave policies on macOS and Windows. On ` +
         `${detection.platform} run the SlimBrave Neo script directly.`,
     };
   }
@@ -163,8 +166,8 @@ export function capabilityFor(detection: DetectionReport | null): Capability {
       canPreview: false,
       canApply: false,
       reason:
-        "No Brave install was found on this Mac. Install Brave, then " +
-        "reopen Spiral Slim.",
+        `No Brave install was found on this ${deviceNoun(detection.platform)}. ` +
+        "Install Brave, then reopen Spiral Slim.",
     };
   }
   return { canPreview: true, canApply: true, reason: "" };

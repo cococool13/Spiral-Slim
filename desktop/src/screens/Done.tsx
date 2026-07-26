@@ -1,7 +1,9 @@
-import type { ApplyOutcome, ResetOutcome } from "../lib/contract";
+import type { ApplyOutcome, Platform, ResetOutcome } from "../lib/contract";
+import { deviceNoun } from "../lib/platform";
 
 interface Props {
   readonly outcome: ApplyOutcome | null;
+  readonly platform: Platform;
   readonly resetOutcome: ResetOutcome | null;
   readonly resetConfirmed: boolean;
   readonly onResetConfirmChange: (confirmed: boolean) => void;
@@ -14,6 +16,7 @@ interface Props {
 
 export function Done({
   outcome,
+  platform,
   resetOutcome,
   resetConfirmed,
   onResetConfirmChange,
@@ -27,8 +30,8 @@ export function Done({
       <div className="pane__inner">
         <h1>Policies removed</h1>
         <p className="lede">
-          Brave is back to its own defaults on this Mac. Restart Brave for that
-          to take effect.
+          Brave is back to its own defaults on this {deviceNoun(platform)}.
+          Restart Brave for that to take effect.
         </p>
         <div className="panel">
           <p style={{ margin: 0 }}>{resetOutcome.message}</p>
@@ -88,8 +91,9 @@ export function Done({
         </>
       ) : (
         <p className="lede">
-          The Configuration Profile is installed, so these settings survive a
-          restart.
+          {platform === "windows"
+            ? "These policies live in the registry, so they survive a restart. There is no further step."
+            : "The Configuration Profile is installed, so these settings survive a restart."}
         </p>
       )}
 

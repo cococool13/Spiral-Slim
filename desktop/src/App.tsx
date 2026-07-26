@@ -11,6 +11,7 @@ import { Stage } from "./components/Stage";
 import { Intro } from "./components/Intro";
 import { Done } from "./screens/Done";
 import * as ipc from "./lib/ipc";
+import { authSentence, deviceNoun, waitingSentence } from "./lib/platform";
 import {
   RECOMMENDED_PROFILE_ID,
   STEPS,
@@ -44,7 +45,7 @@ export function App() {
         if (cancelled) return;
         dispatch({
           type: "detection.failed",
-          error: ipc.toWizardError("Could not check this Mac", thrown),
+          error: ipc.toWizardError("Could not check this computer", thrown),
         });
         return;
       }
@@ -67,6 +68,9 @@ export function App() {
   }, []);
 
   const { step, selection, customDraft, selectedChannelIds, busy } = state;
+  // Detection is the thing that actually looked at the machine, so its
+  // answer drives the wording rather than the build target.
+  const platform = state.detection?.platform ?? "macos";
 
   const requestKey = previewRequestKey(state);
   useEffect(() => {
@@ -144,6 +148,7 @@ export function App() {
         <main className="page">
           <Done
             outcome={state.outcome}
+            platform={platform}
             resetOutcome={state.resetOutcome}
             resetConfirmed={resetConfirmed}
             onResetConfirmChange={setResetConfirmed}
@@ -191,7 +196,7 @@ export function App() {
             ) : null}
             {installed.some((c) => c.managedPolicyCount > 0) ? (
               <p className="startover">
-                Brave is already managed on this Mac.{" "}
+                Brave is already managed on this {deviceNoun(platform)}.{" "}
                 <button
                   type="button"
                   className="linklike"
@@ -199,9 +204,9 @@ export function App() {
                   onClick={() => {
                     if (
                       !window.confirm(
-                        "Remove every policy SlimBrave Neo wrote and put Brave " +
-                          "back to its own defaults? macOS will ask for your " +
-                          "password.",
+                        "Remove every policy SlimBrave Neo wrote and put " +
+                          "Brave back to its own defaults? " +
+                          authSentence(platform),
                       )
                     )
                       return;
@@ -288,6 +293,7 @@ export function App() {
           <Stage title="Review">
             <ReviewPanel
               preview={state.preview}
+              platform={platform}
               confirmed={state.confirmed}
               onConfirmChange={(confirmed) =>
                 dispatch({ type: "confirmation.set", confirmed })
@@ -329,7 +335,7 @@ export function App() {
         </button>
         <p className="footer__reason" aria-live="polite">
           {busy === "apply"
-            ? "Waiting for macOS to authorise the change"
+            ? waitingSentence(platform)
             : advance.reason}
         </p>
         <button

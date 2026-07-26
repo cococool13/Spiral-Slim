@@ -12,14 +12,45 @@ use serde::de::DeserializeOwned;
 
 use crate::elevate::{
     is_safe_control_id, is_safe_identifier, is_safe_path, is_user_cancelled, run_privileged,
+    AUTH_DIALOG,
 };
 use crate::error::{SlimError, SlimResult};
 use crate::model::*;
 use crate::project::Project;
 
 pub const PLAN_SCHEMA_VERSION: u32 = 1;
-const MAC_ENTRYPOINT: &str = "slimbrave-mac.py";
 const COLLECTION_ENTRYPOINT: &str = "browser_collection.py";
+
+/// The privileged entrypoint for a platform.
+///
+/// Both scripts take the same `--detect / --preview-plan / --apply-plan /
+/// --reset` surface and validate a plan through the same
+/// `browser_collection.plan`, so everything above this line is identical;
+/// only the place policy lands differs (a managed plist, or the registry).
+///
+/// Taking the platform as an argument rather than reading `cfg!` inline is
+/// what lets a Mac test the Windows answer.
+pub fn entrypoint_for(os: &str) -> Option<&'static str> {
+    match os {
+        "macos" => Some("slimbrave-mac.py"),
+        "windows" => Some("slimbrave-windows.py"),
+        _ => None,
+    }
+}
+
+/// The entrypoint for the platform this build runs on.
+pub fn entrypoint() -> SlimResult<&'static str> {
+    entrypoint_for(std::env::consts::OS).ok_or_else(|| {
+        SlimError::new(
+            "Not supported on this platform",
+            format!(
+                "Spiral Slim applies Brave policies on macOS and Windows. This is {}.",
+                std::env::consts::OS
+            ),
+            "Run the SlimBrave Neo script for your platform from a terminal instead.",
+        )
+    })
+}
 
 fn decode<T: DeserializeOwned>(what: &str, stdout: &str) -> SlimResult<T> {
     serde_json::from_str(stdout).map_err(|error| {
@@ -102,7 +133,7 @@ fn require_read_only(what: &str, mutates: bool) -> SlimResult<()> {
 pub fn detect(project: &Project) -> SlimResult<Detection> {
     let stdout = run_read_only(
         project,
-        MAC_ENTRYPOINT,
+        entrypoint()?,
         &["--detect", "--format", "json"],
         "browser detection",
     )?;
@@ -378,7 +409,7 @@ pub fn preview(
     let plan_path = write_plan(workspace.path(), &document)?;
     let stdout = run_read_only(
         project,
-        MAC_ENTRYPOINT,
+        entrypoint()?,
         &[
             "--preview-plan",
             &plan_path.to_string_lossy(),
@@ -516,7 +547,7 @@ fn privileged(
     prompt: &str,
     what: &str,
 ) -> SlimResult<String> {
-    let script = project.script(MAC_ENTRYPOINT);
+    let script = project.script(entrypoint()?);
     let mut argv = vec![
         project.python.to_string_lossy().into_owned(),
         script.to_string_lossy().into_owned(),
@@ -524,13 +555,14 @@ fn privileged(
     argv.extend(args);
 
     let output = run_privileged(&argv, prompt)?;
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    if !output.status.success() {
+    let stderr = output.stderr.clone();
+    if !output.success {
         if is_user_cancelled(&stderr) {
             return Err(SlimError::new(
                 "Cancelled",
-                "You dismissed the macOS permission dialog, so nothing was changed."
-                    .to_string(),
+                format!(
+                    "You dismissed the {AUTH_DIALOG}, so nothing was changed."
+                ),
                 "Choose the action again when you are ready.",
             ));
         }
@@ -546,7 +578,7 @@ fn privileged(
              and try again.",
         ));
     }
-    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    Ok(output.stdout)
 }
 
 pub fn apply(project: &Project, prepared: &PreparedPlan) -> SlimResult<ApplyOutcome> {
@@ -691,11 +723,38 @@ pub fn open_policy_page(app_path: &str) -> SlimResult<()> {
     ))
 }
 
-#[cfg(not(target_os = "macos"))]
+/// Windows: run `brave.exe brave://policy` directly.
+///
+/// The executable itself, not `cmd /c start` — there is no shell in the path,
+/// so nothing here can be reinterpreted as a command. `app_path` comes from
+/// detection, and is still checked for being an absolute, existing file.
+#[cfg(target_os = "windows")]
+pub fn open_policy_page(app_path: &str) -> SlimResult<()> {
+    if !is_safe_path(Path::new(app_path)) || !Path::new(app_path).is_file() {
+        return Err(SlimError::new(
+            "Brave was not found",
+            format!("{app_path} is not a program on this PC."),
+            "Open Brave yourself and go to brave://policy.",
+        ));
+    }
+    Command::new(app_path)
+        .arg("brave://policy")
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| {
+            SlimError::new(
+                "Could not open Brave",
+                error.to_string(),
+                "Open Brave yourself and go to brave://policy.",
+            )
+        })
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 pub fn open_policy_page(_app_path: &str) -> SlimResult<()> {
     Err(SlimError::new(
         "Not supported on this platform",
-        "Spiral Slim opens Brave on macOS only.".to_string(),
+        "Spiral Slim opens Brave on macOS and Windows only.".to_string(),
         "Open Brave yourself and go to brave://policy.",
     ))
 }
@@ -781,6 +840,26 @@ mod tests {
     }
 
     #[test]
+    fn each_platform_gets_its_own_entrypoint() {
+        assert_eq!(entrypoint_for("macos"), Some("slimbrave-mac.py"));
+        assert_eq!(entrypoint_for("windows"), Some("slimbrave-windows.py"));
+    }
+
+    #[test]
+    fn an_unsupported_platform_is_refused_rather_than_guessed() {
+        // Better a clear refusal than running the macOS script on Linux and
+        // failing somewhere deep inside it.
+        assert_eq!(entrypoint_for("linux"), None);
+        assert_eq!(entrypoint_for(""), None);
+    }
+
+    #[test]
+    fn this_build_resolves_an_entrypoint() {
+        // Guards against a build for a platform the bridge cannot drive.
+        assert!(entrypoint().is_ok());
+    }
+
+    #[test]
     fn an_unknown_schema_version_is_refused() {
         let error = require_schema("browser detection", 2).unwrap_err();
         assert!(error.detail.contains("schema version 2"));
@@ -799,7 +878,7 @@ mod tests {
                 .parent()?
                 .parent()?
                 .to_path_buf();
-            if !root.join(MAC_ENTRYPOINT).is_file() {
+            if !root.join(entrypoint().ok()?).is_file() {
                 return None;
             }
             Some(Project {

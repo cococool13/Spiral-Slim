@@ -22,12 +22,27 @@ describe("platform capability gating", () => {
   it("refuses on Linux and names the alternative", () => {
     const capability = capabilityFor(detection({ platform: "linux" }));
     expect(capability.canApply).toBe(false);
-    expect(capability.reason).toContain("macOS only");
+    expect(capability.reason).toContain("macOS and Windows");
     expect(capability.reason).toContain("SlimBrave Neo script");
   });
 
-  it("refuses on Windows", () => {
-    expect(capabilityFor(detection({ platform: "windows" })).canApply).toBe(false);
+  it("allows Windows, which now has its own plan entrypoint", () => {
+    const capability = capabilityFor(detection({ platform: "windows" }));
+    expect(capability.canApply).toBe(true);
+    expect(capability.reason).toBe("");
+  });
+
+  it("names the machine the way the platform's users do", () => {
+    // "No Brave install was found on this Mac" is wrong on a PC, and the
+    // wrongness is the kind a person notices immediately.
+    expect(
+      capabilityFor(detection({ platform: "windows", found: false, channels: [] }))
+        .reason,
+    ).toContain("this PC");
+    expect(
+      capabilityFor(detection({ platform: "macos", found: false, channels: [] }))
+        .reason,
+    ).toContain("this Mac");
   });
 
   it("refuses when Brave was not found", () => {
@@ -48,7 +63,7 @@ describe("platform capability gating", () => {
       report: detection({ platform: "linux" }),
     });
     expect(canAdvance(state).ok).toBe(false);
-    expect(canAdvance(state).reason).toContain("macOS only");
+    expect(canAdvance(state).reason).toContain("macOS and Windows");
   });
 
   it("blocks apply on an unsupported platform even with a confirmed preview", () => {
@@ -64,11 +79,11 @@ describe("platform capability gating", () => {
         { type: "preview.loaded", report: preview() },
         { type: "confirmation.set", confirmed: true },
       ),
-      detection: detection({ platform: "windows" }),
+      detection: detection({ platform: "linux" }),
     };
     expect(state.confirmed).toBe(true);
     expect(canApply(state).ok).toBe(false);
-    expect(canApply(state).reason).toContain("macOS only");
+    expect(canApply(state).reason).toContain("macOS and Windows");
   });
 });
 

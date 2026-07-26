@@ -1,5 +1,6 @@
-import type { PreviewReport } from "../lib/contract";
+import type { Platform, PreviewReport } from "../lib/contract";
 import { controlLabel, riskLabel } from "../lib/copy";
+import { authSentence, deviceNoun, needsProfileApproval } from "../lib/platform";
 
 const FIGURES = [
   ["added", "add"],
@@ -20,6 +21,7 @@ function total(preview: PreviewReport, key: "add" | "change" | "remove") {
  */
 export function ReviewPanel({
   preview,
+  platform,
   confirmed,
   onConfirmChange,
   busy,
@@ -27,6 +29,7 @@ export function ReviewPanel({
   onExport,
 }: {
   readonly preview: PreviewReport | null;
+  readonly platform: Platform;
   readonly confirmed: boolean;
   readonly onConfirmChange: (confirmed: boolean) => void;
   readonly busy: "preview" | "apply" | null;
@@ -84,7 +87,7 @@ export function ReviewPanel({
           <p className="review__note">
             <strong>
               {removals} managed {removals === 1 ? "policy" : "policies"}{" "}
-              already on this Mac will be removed.
+              already on this {deviceNoun(platform)} will be removed.
             </strong>{" "}
             Applying replaces the whole managed set for the selected channels
             rather than merging into it.
@@ -155,9 +158,10 @@ export function ReviewPanel({
           />
           <span>
             Write these {preview.managedPolicyCount} policies to {channelNames},
-            removing the {removals} not in this profile. macOS will ask for your
-            password in its own dialog, then the Configuration Profile needs
-            approving in System Settings.
+            removing the {removals} not in this profile. {authSentence(platform)}
+            {needsProfileApproval(platform)
+              ? " The Configuration Profile then needs approving in System Settings."
+              : ""}
           </span>
         </label>
       )}

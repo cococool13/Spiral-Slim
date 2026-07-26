@@ -10,16 +10,75 @@ use std::path::{Path, PathBuf};
 use crate::error::{SlimError, SlimResult};
 
 /// Scripts the project root must contain before we will run anything from it.
-const REQUIRED: [&str; 2] = ["slimbrave-mac.py", "browser_collection.py"];
+///
+/// The privileged entrypoint is platform-specific, and it is checked rather
+/// than assumed: a bundle that shipped only the macOS script would otherwise
+/// pass this check on Windows and fail later, mid-apply, with a much worse
+/// message.
+const REQUIRED_SHARED: [&str; 1] = ["browser_collection.py"];
+
+fn required_scripts() -> [&'static str; 2] {
+    let entrypoint = if cfg!(target_os = "windows") {
+        "slimbrave-windows.py"
+    } else {
+        "slimbrave-mac.py"
+    };
+    [entrypoint, REQUIRED_SHARED[0]]
+}
 
 /// Checked in order. The scripts are stdlib-only, so the system interpreter
 /// on macOS is enough and is preferred: an app launched from Finder has a
 /// minimal PATH and should not depend on the user's shell setup.
+#[cfg(not(target_os = "windows"))]
 const PYTHON_CANDIDATES: [&str; 3] = [
     "/usr/bin/python3",
     "/opt/homebrew/bin/python3",
     "/usr/local/bin/python3",
 ];
+
+/// Windows ships no Python, so there is no fixed path to prefer. The launcher
+/// is tried first because it is the one thing a python.org install always
+/// puts in the system directory; after that, PATH.
+#[cfg(target_os = "windows")]
+const PYTHON_CANDIDATES: [&str; 2] = [
+    r"C:\Windows\py.exe",
+    r"C:\Windows\System32\py.exe",
+];
+
+/// Names to look for on PATH when no fixed path matched. Windows only: on
+/// Unix the fixed list above is exhaustive enough, and a GUI app there has a
+/// minimal PATH anyway.
+#[cfg(target_os = "windows")]
+const PYTHON_ON_PATH: [&str; 3] = ["python3.exe", "python.exe", "py.exe"];
+
+/// Search PATH for the first name that exists.
+#[cfg(target_os = "windows")]
+fn python_on_path() -> Option<PathBuf> {
+    let path = std::env::var_os("PATH")?;
+    for directory in std::env::split_paths(&path) {
+        for name in PYTHON_ON_PATH {
+            let candidate = directory.join(name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
+#[cfg(not(target_os = "windows"))]
+fn python_on_path() -> Option<PathBuf> {
+    None
+}
+
+/// What to tell someone whose machine has no Python.
+const PYTHON_NEXT_STEP: &str = if cfg!(target_os = "windows") {
+    "Install Python 3 from python.org (tick \"Add python.exe to PATH\"), then \
+     reopen Spiral Slim."
+} else {
+    "Install the Xcode command line tools with `xcode-select --install`, then \
+     reopen Spiral Slim."
+};
 
 #[derive(Debug, Clone)]
 pub struct Project {
@@ -28,7 +87,9 @@ pub struct Project {
 }
 
 fn is_project_root(candidate: &Path) -> bool {
-    REQUIRED.iter().all(|name| candidate.join(name).is_file())
+    required_scripts()
+        .iter()
+        .all(|name| candidate.join(name).is_file())
 }
 
 /// Candidate roots, most explicit first.
@@ -73,7 +134,7 @@ pub fn resolve_root(candidates: &[PathBuf]) -> SlimResult<PathBuf> {
                 "SlimBrave Neo source not found",
                 format!(
                     "Spiral Slim looked for {} in {} location(s) and found neither.",
-                    REQUIRED.join(" and "),
+                    required_scripts().join(" and "),
                     candidates.len()
                 ),
                 "Set SPIRAL_SLIM_PROJECT_DIR to the apps/slim folder and reopen \
@@ -99,13 +160,15 @@ pub fn resolve_python(env_override: Option<PathBuf>) -> SlimResult<PathBuf> {
             return Ok(path);
         }
     }
+    if let Some(path) = python_on_path() {
+        return Ok(path);
+    }
     Err(SlimError::new(
         "Python 3 not found",
         "Spiral Slim needs Python 3 to run the SlimBrave Neo scripts and could \
          not find it in any standard location."
             .to_string(),
-        "Install the Xcode command line tools with `xcode-select --install`, \
-         then reopen Spiral Slim.",
+        PYTHON_NEXT_STEP,
     ))
 }
 
@@ -138,7 +201,7 @@ mod tests {
     #[test]
     fn a_directory_with_both_scripts_is_a_project_root() {
         let dir = tempfile::tempdir().unwrap();
-        for name in REQUIRED {
+        for name in required_scripts() {
             std::fs::write(dir.path().join(name), "").unwrap();
         }
         assert!(is_project_root(dir.path()));
@@ -147,9 +210,34 @@ mod tests {
     #[test]
     fn a_partial_checkout_is_rejected() {
         // Only one of the two scripts present: refuse rather than half-work.
+        // Written via required_scripts() so this still tests what it claims
+        // on Windows, where the macOS entrypoint is not one of them.
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("slimbrave-mac.py"), "").unwrap();
+        std::fs::write(dir.path().join(required_scripts()[0]), "").unwrap();
         assert!(!is_project_root(dir.path()));
+    }
+
+    #[test]
+    fn the_required_entrypoint_matches_this_platform() {
+        let expected = if cfg!(target_os = "windows") {
+            "slimbrave-windows.py"
+        } else {
+            "slimbrave-mac.py"
+        };
+        assert_eq!(required_scripts()[0], expected);
+        assert!(required_scripts().contains(&"browser_collection.py"));
+    }
+
+    #[test]
+    fn the_python_next_step_names_a_tool_that_exists_on_this_platform() {
+        // Telling a Windows user to run xcode-select is worse than saying
+        // nothing; it sends them looking for a command they cannot have.
+        if cfg!(target_os = "windows") {
+            assert!(PYTHON_NEXT_STEP.contains("python.org"));
+            assert!(!PYTHON_NEXT_STEP.contains("xcode-select"));
+        } else {
+            assert!(PYTHON_NEXT_STEP.contains("xcode-select"));
+        }
     }
 
     #[test]
