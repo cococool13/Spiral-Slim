@@ -331,4 +331,10 @@ class ExportPlanOnUnsupportedPlatformTests(unittest.TestCase):
         with redirect_stderr(errors):
             code = cli.main(["--export-plan", "balanced-daily"])
         self.assertEqual(code, 2)
-        self.assertIn("no supported controls", errors.getvalue())
+        # Resolving against a synthetic installation means the engine now
+        # reaches the profile and reports it blocked, rather than finding no
+        # browser at all. Either way the refusal has to name the platform as
+        # the reason, so that is what this asserts.
+        message = errors.getvalue()
+        self.assertIn("balanced-daily", message)
+        self.assertIn("platform", message)
