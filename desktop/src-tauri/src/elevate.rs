@@ -338,8 +338,25 @@ mod tests {
 
     #[test]
     fn relative_paths_are_rejected() {
-        assert!(is_safe_path(Path::new("/tmp/plan.json")));
+        // "/tmp/plan.json" is not absolute on Windows — an absolute path
+        // there needs a drive or a UNC prefix. The function was right; the
+        // test was written on a Mac and only said so when Windows first
+        // compiled it.
+        let absolute = if cfg!(windows) {
+            r"C:\Temp\plan.json"
+        } else {
+            "/tmp/plan.json"
+        };
+        assert!(is_safe_path(Path::new(absolute)));
         assert!(!is_safe_path(Path::new("plan.json")));
+    }
+
+    #[test]
+    fn a_unix_style_path_is_not_absolute_on_windows() {
+        // Pinning the reason for the branch above, so nobody "simplifies" it
+        // back into a single hardcoded path.
+        let unix_style = is_safe_path(Path::new("/tmp/plan.json"));
+        assert_eq!(unix_style, !cfg!(windows));
     }
 
     #[test]
