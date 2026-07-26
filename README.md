@@ -21,9 +21,9 @@ Spiral Slim uses enterprise managed policies to disable telemetry, bloat, and un
 > **The only official source of Spiral Slim is this repository:**
 > [`github.com/cococool13/Spiral-Slim`](https://github.com/cococool13/Spiral-Slim)
 >
-> This project ships **source code only**. Python and PowerShell scripts you can read before running.
-> **There are no official `.exe`, `.msi`, `.dmg`, `.pkg`, installers, or compiled binaries.**
-> If you find a download claiming to be Spiral Slim elsewhere, it is not from this project. See [`SECURITY.md`](SECURITY.md).
+> The command-line tool ships **source code only** — Python and PowerShell scripts you can read before running. **There is no official `.exe`, `.msi`, `.pkg`, `.deb`, `.rpm`, or `.AppImage`. Not now, not ever, on any platform.**
+>
+> The optional macOS app is the single exception: a signed, notarized `.dmg`, published **only** on this repository's [Releases](https://github.com/cococool13/Spiral-Slim/releases) page. Before running it, verify it — above all that `codesign` reports `TeamIdentifier=CU8NTJWQ43`. The four checks are in [`SECURITY.md`](SECURITY.md). A copy that fails any of them is not from this project.
 
 > [!NOTE]
 > **Lineage & credit.** Spiral Slim began as a fork of [Spiral Slim](https://github.com/ChaoticSi1ence/SlimBrave-Neo) by ChaoticSi1ence and remains GPL-3.0. The multi-browser engine, per-browser catalogs, and preset system were developed here and offered upstream. For migration compatibility with SlimBrave installs, some on-disk identifiers deliberately keep their original names (the `slimbrave.json` policy filename and the macOS profile identifiers) — renaming them would leave migrating users with duplicate policy files that Chromium merges, and orphaned Configuration Profiles this tool could no longer remove.
@@ -90,9 +90,9 @@ path, privilege check, plist, Configuration Profile, and prefs repair — the ap
 only previews and asks. Brave only, macOS only.
 
 > [!IMPORTANT]
-> **Still source only.** There is no `.dmg` release and no download link, for
-> the same reason as the rest of this project: see [`SECURITY.md`](SECURITY.md).
-> You build it yourself, from the source in this repository.
+> **Get it only from [Releases](https://github.com/cococool13/Spiral-Slim/releases) on this repository**, and check it before you run it: `TeamIdentifier=CU8NTJWQ43`, notarized, and a SHA-256 matching the release notes. The four checks are in [`SECURITY.md`](SECURITY.md).
+>
+> Or skip the download entirely — the source is in `desktop/` and builds in one command. A build you made yourself is the copy you can trust most, and it is the only option on a machine where you would rather not run someone else's binary.
 
 ```bash
 cd desktop

@@ -87,34 +87,64 @@ is complete rather than the app quietly falling back to a checkout. Release
 builds have no such fallback by design (see below), so a mis-packaged bundle
 fails loudly on the build machine instead of silently in the field.
 
-### Signing
+### Cutting a signed release
 
-`hardenedRuntime` is on, but no signing identity is committed — a plain build
-is ad-hoc signed, which is what you want when anyone can clone this. Sign via
-the environment instead, so the config stays buildable by people who do not
-have the certificate:
+No signing identity is committed — a plain clone builds ad-hoc signed, which
+is what you want when anyone can clone this. The identity comes from the
+environment, so the config stays buildable by people who do not have the
+certificate.
 
-```bash
-APPLE_SIGNING_IDENTITY="Developer ID Application: … (TEAMID)" \
-  pnpm tauri build --target universal-apple-darwin
-```
+**The order below matters.** Stapling rewrites the DMG, so a checksum taken
+before it is stapled will not match what people download.
 
-Verified working: the resulting bundle passes `codesign --verify --deep
---strict` with `flags=0x10000(runtime)`.
+1. Build, signed:
+
+   ```bash
+   APPLE_SIGNING_IDENTITY="Developer ID Application: … (TEAMID)" \
+     pnpm tauri build --target universal-apple-darwin
+   ```
+
+2. Notarize, and wait for the result:
+
+   ```bash
+   xcrun notarytool submit "Spiral Slim_<version>_universal.dmg" \
+     --apple-id <apple-id> --team-id CU8NTJWQ43 \
+     --password <app-specific-password> --wait
+   ```
+
+3. Staple, so it validates offline:
+
+   ```bash
+   xcrun stapler staple "Spiral Slim_<version>_universal.dmg"
+   ```
+
+4. Confirm Gatekeeper accepts it. This is the check that catches a failed
+   notarization, and it must say `accepted` / `source=Notarized Developer ID`:
+
+   ```bash
+   spctl -a -vvv -t install "path/to/Spiral Slim.app"
+   ```
+
+5. **Now** take the checksum, and put it in the release notes:
+
+   ```bash
+   shasum -a 256 "Spiral Slim_<version>_universal.dmg"
+   ```
+
+6. Publish it on this repository's Releases page and nowhere else.
+   [`SECURITY.md`](../SECURITY.md) tells users to reject a copy from any other
+   source, so a mirror does not help them — it makes them doubt the real one.
 
 ### Not done, and deliberately
 
-- **No published binary, by policy.** This is not an oversight and not a
-  to-do. [`SECURITY.md`](../SECURITY.md) tells users that any Spiral Slim
-  installer, executable or **signed binary** is a malware indicator — the
-  project ships source so people can tell a fake from the real thing.
-  Publishing a `.dmg` would break the signal its own users rely on. Build it
-  yourself; that is the distribution model.
-- **Not notarized.** Follows from the above. A signed-but-un-notarized bundle
-  is Gatekeeper-blocked anyway (`spctl` reports `Unnotarized Developer ID`),
-  so a local build is the supported path.
+- **macOS only.** `slimbrave-linux.py` exists, but detection, elevation and
+  the Configuration Profile path are all macOS. Bundle targets are `app` and
+  `dmg`. There is no Windows or Linux binary and [`SECURITY.md`](../SECURITY.md)
+  says there never will be — do not add one without changing that document
+  first.
 - **No auto-updater.** Spiral Wallpaper has one; Slim has no updater plugin
-  and no release endpoint. Nothing to update from without a release.
+  and no signing key for update artifacts. Adding it means adding a second
+  trust root, which is a decision, not a chore.
 - **macOS only.** `slimbrave-linux.py` exists but detection, elevation and
   the Configuration Profile path are all macOS. Bundle targets are `app`
   and `dmg` only.
