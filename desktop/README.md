@@ -65,9 +65,11 @@ Icons: `pnpm sync-brand` copies the brand PNGs into `src-tauri/icons/`. Run
 
 ## Releasing
 
-Current version **1.0.0**. Bump it in **both** `src-tauri/tauri.conf.json`
-and `src-tauri/Cargo.toml` — they are read by different tools and nothing
-checks that they agree.
+Current version **1.0.0**. Bump it in **all three** of
+`src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, and `package.json` —
+they are read by different tools and nothing checks that they agree. They
+disagreed until a production audit compared them: package.json still said
+0.1.0 long after the app shipped as 1.0.0.
 
 ```bash
 pnpm tauri build --target universal-apple-darwin

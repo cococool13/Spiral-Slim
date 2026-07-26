@@ -174,9 +174,10 @@ Needs Node 22+, pnpm, Rust via rustup, and Xcode command line tools. The
 run on both Apple silicon and Intel; a plain `pnpm tauri build` produces a
 bundle for whichever machine you are on.
 
-Tests: `pnpm test` (117), `cd src-tauri && cargo test` (51), and the Python
-suite at the repo root (`python3 -m unittest discover -s tests -p "test_*.py"`,
-119).
+Tests: `pnpm test` in `desktop/`, `cargo test` in `desktop/src-tauri/`, and
+`pytest` at the repo root. Use pytest rather than `unittest discover` for the
+Python suite — one module is written against pytest, and conftest skips the
+curses-bound tests on Windows, which unittest does not honour.
 
 
 ---
