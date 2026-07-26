@@ -78,6 +78,41 @@ Presets are starting points — import one in the interactive UI, adjust toggles
 
 ---
 
+## The desktop app (macOS, optional)
+
+`desktop/` holds **Spiral Slim 1.0.0**, a small native wizard over the same
+scripts — for people who would rather see the change than read a CLI flag. It
+detects the Brave channels installed, shows every managed policy a profile
+would **add, change, or remove**, and writes nothing until you confirm.
+
+It contains **no policy logic of its own.** `slimbrave-mac.py` still owns every
+path, privilege check, plist, Configuration Profile, and prefs repair — the app
+only previews and asks. Brave only, macOS only.
+
+> [!IMPORTANT]
+> **Still source only.** There is no `.dmg` release and no download link, for
+> the same reason as the rest of this project: see [`SECURITY.md`](SECURITY.md).
+> You build it yourself, from the source in this repository.
+
+```bash
+cd desktop
+pnpm install
+pnpm tauri dev                                  # run it
+pnpm tauri build --target universal-apple-darwin # build a local .app
+```
+
+Needs Node 22+, pnpm, Rust via rustup, and Xcode command line tools. The
+`--target universal-apple-darwin` flag is not optional if you want the build to
+run on both Apple silicon and Intel; a plain `pnpm tauri build` produces a
+bundle for whichever machine you are on.
+
+Tests: `pnpm test` (117), `cd src-tauri && cargo test` (51), and the Python
+suite at the repo root (`python3 -m unittest discover -s tests -p "test_*.py"`,
+119).
+
+
+---
+
 ## Quick Start
 
 ### Linux
