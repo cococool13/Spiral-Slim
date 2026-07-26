@@ -337,6 +337,8 @@ looks for a stored plan.
 
 ## Scope
 
-macOS only. `capabilityFor` gates Linux and Windows off with a reason and
-points at the SlimBrave Neo script for that platform, because only the macOS
-entrypoint exposes the plan interface today.
+macOS and Windows. Both have a SlimBrave Neo entrypoint that exposes the plan
+interface, and both validate a plan through the same
+`browser_collection.plan`, so `capabilityFor` admits either. Linux is gated
+off with a reason and pointed at `slimbrave-linux.py`, which has no plan
+interface — a refusal that names the alternative, not a dead end.

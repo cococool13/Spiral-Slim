@@ -8,7 +8,7 @@ Where they disagree with this file, they win.
 product
 
 ## Users
-People on macOS who want Brave configured sensibly and do not want to read a
+People on macOS or Windows who want Brave configured sensibly and do not want to read a
 policy reference to get there. They are in a one-time errand, not a workflow:
 open, pick, read what will change, confirm, done. A meaningful share are
 privacy-conscious and are here precisely because Spiral Slim makes no network

@@ -125,26 +125,34 @@ Two differences from macOS worth knowing:
 multi-browser tool; `slimbrave-windows.py` is the narrow one that applies a
 `profiles/` profile to Brave and nothing else.
 
-### Not on Windows yet
+### The desktop app runs here too
 
-The **desktop app is macOS only.** It shells out to `slimbrave-mac.py` and
-elevates through macOS's authorization dialog, neither of which has a Windows
-equivalent in the codebase yet. Windows users get the profiles through the
-command line above.
+Since v1.0.0 the optional [desktop app](#the-desktop-app-optional) builds and
+runs on Windows as well as macOS — same wizard, same profiles, same
+confirmation gate. It drives `slimbrave-windows.py` and raises UAC instead of
+the macOS authorisation dialog.
+
+**It has never been run on Windows.** It was developed on a Mac, so the
+Windows code paths are tested but unexercised. Build it yourself with
+`cd desktop && pnpm tauri build`, and prefer `--detect` (read-only, no UAC)
+as the first thing you try. There is no Windows binary to download and
+[`SECURITY.md`](SECURITY.md) says there never will be.
 
 
 ---
 
-## The desktop app (macOS, optional)
+## The desktop app (optional)
 
 `desktop/` holds **Spiral Slim 1.0.0**, a small native wizard over the same
 scripts — for people who would rather see the change than read a CLI flag. It
 detects the Brave channels installed, shows every managed policy a profile
 would **add, change, or remove**, and writes nothing until you confirm.
 
-It contains **no policy logic of its own.** `slimbrave-mac.py` still owns every
-path, privilege check, plist, Configuration Profile, and prefs repair — the app
-only previews and asks. Brave only, macOS only.
+It contains **no policy logic of its own.** The platform entrypoint —
+`slimbrave-mac.py` or `slimbrave-windows.py` — still owns every path,
+privilege check, plist or registry write, Configuration Profile, and prefs
+repair; the app only previews and asks. Brave only. macOS is shipped and
+notarized; Windows builds from source and has never been run on Windows.
 
 > [!IMPORTANT]
 > **Get it only from [Releases](https://github.com/cococool13/Spiral-Slim/releases) on this repository**, and check it before you run it: `TeamIdentifier=CU8NTJWQ43`, notarized, and a SHA-256 matching the release notes. The four checks are in [`SECURITY.md`](SECURITY.md).
