@@ -38,8 +38,7 @@
     "longDescription": "Spiral Slim is a local wizard over SlimBrave Neo. It reads the Brave channels installed on this Mac, shows the exact managed policies a profile would add, change or remove, and writes nothing until you confirm. No accounts, no telemetry, no network calls.",
     "macOS": {
       "minimumSystemVersion": "10.15",
-      "hardenedRuntime": true,
-      "signingIdentity": "Developer ID Application: COHEN BENJAMIN COOLIOGE (CU8NTJWQ43)"
+      "hardenedRuntime": true
     },
     "resources": {
       "../../slimbrave-mac.py": "slimbrave/slimbrave-mac.py",
