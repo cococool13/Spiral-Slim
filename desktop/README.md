@@ -137,11 +137,17 @@ before it is stapled will not match what people download.
 
 ### Not done, and deliberately
 
-- **macOS only.** `slimbrave-linux.py` exists, but detection, elevation and
-  the Configuration Profile path are all macOS. Bundle targets are `app` and
-  `dmg`. There is no Windows or Linux binary and [`SECURITY.md`](../SECURITY.md)
-  says there never will be — do not add one without changing that document
-  first.
+- **macOS only — the app, not the profiles.** Since `slimbrave-windows.py`
+  landed, the profiles in `profiles/` apply on Windows too; what is still
+  macOS-only is this GUI. It shells out to `slimbrave-mac.py` and elevates
+  through macOS's authorization dialog, and neither has a Windows equivalent
+  here yet. A Windows build would need `bridge.rs` to select the entrypoint
+  by OS, `elevate.rs` to raise a UAC prompt instead of running `osascript`,
+  and an NSIS target. The plan interface is already platform-neutral, so that
+  is the smaller half of the work.
+- **No Windows or Linux binary of any kind**, and
+  [`SECURITY.md`](../SECURITY.md) says there never will be — do not add one
+  without changing that document first.
 - **No auto-updater.** Spiral Wallpaper has one; Slim has no updater plugin
   and no signing key for update artifacts. Adding it means adding a second
   trust root, which is a decision, not a chore.

@@ -2214,128 +2214,43 @@ def cli_preview(path, installations, doh_templates="",
 # / cfprefsd / prefs-repair path Apply uses in the TUI.
 # ---------------------------------------------------------------------------
 
-PLAN_SCHEMA_VERSION = 1
-PLAN_FIELDS = frozenset({
-    "schema_version", "profile_id", "plan_hash", "policy",
-})
-EVIDENCE_FILE = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "browser_collection", "evidence", "brave.json",
-)
-_ID_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789-")
-_HEX_CHARS = frozenset("0123456789abcdef")
-
-
-class PlanError(ValueError):
-    """Raised when a plan is not a faithful, verified policy map."""
-
-
-def _is_stable_id(value):
-    return (
-        isinstance(value, str)
-        and 0 < len(value) <= 64
-        and set(value) <= _ID_CHARS
-        and not value.startswith("-")
-        and not value.endswith("-")
+# Plan validation lives in browser_collection/plan.py so that macOS and
+# Windows cannot drift on what a plan is allowed to contain. The two write to
+# entirely different places; they must agree exactly on what may be written.
+#
+# Imported defensively: plan mode needs browser_collection, but the TUI does
+# not, and a missing package must stay a clear message from the plan path
+# rather than a traceback at startup.
+try:
+    from browser_collection.plan import (  # noqa: F401
+        EVIDENCE_FILE,
+        PLAN_FIELDS,
+        PLAN_SCHEMA_VERSION,
+        PlanError,
+        allowed_policy_values as _allowed_policy_values,
+        is_sha256_hex as _is_sha256_hex,
+        is_stable_id as _is_stable_id,
+        load_plan,
+        typed_value as _typed_value,
+    )
+except ImportError:  # pragma: no cover - exercised only without the package
+    PLAN_SCHEMA_VERSION = 1
+    PLAN_FIELDS = frozenset({
+        "schema_version", "profile_id", "plan_hash", "policy",
+    })
+    EVIDENCE_FILE = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "browser_collection", "evidence", "brave.json",
     )
 
+    class PlanError(ValueError):
+        """Raised when a plan is not a faithful, verified policy map."""
 
-def _is_sha256_hex(value):
-    return (
-        isinstance(value, str)
-        and len(value) == 64
-        and set(value) <= _HEX_CHARS
-    )
-
-
-def _typed_value(value):
-    """Pair a value with its type name.
-
-    Python treats True == 1, so a bare membership test would let a plan
-    write a boolean where the verified mapping specifies the integer 1
-    (and the reverse). Comparing (type name, value) keeps them distinct.
-    """
-    return (type(value).__name__, value)
-
-
-def _allowed_policy_values():
-    """Return {policy key: {permitted typed values}} from verified evidence.
-
-    Loaded through browser_collection.evidence so the mapping file passes
-    its own schema validation rather than a second, looser parser here.
-    """
-    try:
-        from browser_collection.evidence import load_evidence
-    except ImportError as error:
+    def load_plan(path):
         raise PlanError(
             "browser_collection is required for plan mode. Run this script "
             "from the SlimBrave Neo project directory."
-        ) from error
-    try:
-        mappings = load_evidence(EVIDENCE_FILE)
-    except (ValueError, OSError) as error:
-        raise PlanError(
-            f"Verified Brave mapping unavailable: {error}"
-        ) from error
-
-    allowed = {}
-    for mapping in mappings.values():
-        allowed.setdefault(mapping["vendor_name"], set()).update(
-            _typed_value(item) for item in mapping["values"].values()
         )
-    return allowed
-
-
-def load_plan(path):
-    """Validate a plan file and return (profile_id, plan_hash, policy).
-
-    Raises PlanError with an actionable message on any problem. Nothing is
-    read from the system and nothing is written.
-    """
-    try:
-        document = read_json_file(path)
-    except FileNotFoundError as error:
-        raise PlanError(f"File not found: {path}") from error
-    except (json.JSONDecodeError, UnicodeDecodeError) as error:
-        raise PlanError(f"Invalid JSON: {error}") from error
-    except OSError as error:
-        raise PlanError(f"Read error: {error}") from error
-
-    if not isinstance(document, dict):
-        raise PlanError("Plan must be a JSON object.")
-    unknown = sorted(set(document) - PLAN_FIELDS)
-    if unknown:
-        raise PlanError(f"Unknown plan field: {unknown[0]}")
-    missing = sorted(PLAN_FIELDS - set(document))
-    if missing:
-        raise PlanError(f"Missing plan field: {missing[0]}")
-    if (
-        type(document["schema_version"]) is not int
-        or document["schema_version"] != PLAN_SCHEMA_VERSION
-    ):
-        raise PlanError(
-            f"Unsupported plan schema_version; expected "
-            f"{PLAN_SCHEMA_VERSION}."
-        )
-    if not _is_stable_id(document["profile_id"]):
-        raise PlanError("Plan profile_id is not a stable id.")
-    if not _is_sha256_hex(document["plan_hash"]):
-        raise PlanError("Plan hash must be a sha256 hex digest.")
-
-    policy = document["policy"]
-    if not isinstance(policy, dict) or not policy:
-        raise PlanError("Plan policy must be a non-empty object.")
-
-    allowed = _allowed_policy_values()
-    verified = {}
-    for key in sorted(policy):
-        if key not in allowed:
-            raise PlanError(f"{key} has no verified Brave mapping.")
-        value = policy[key]
-        if _typed_value(value) not in allowed[key]:
-            raise PlanError(f"{key}: {value!r} is not a verified value.")
-        verified[key] = value
-    return document["profile_id"], document["plan_hash"], verified
 
 
 def cli_detect(output_format="text"):

@@ -78,6 +78,63 @@ Presets are starting points — import one in the interactive UI, adjust toggles
 
 ---
 
+## Profiles on Windows
+
+The profiles in `profiles/` — Balanced Daily, Maximum Performance, Minimal
+Debloated — apply on Windows as well as macOS. All 18 controls a profile
+resolves are verified on both platforms, so the same profile means the same
+thing on either.
+
+```powershell
+# See what is installed. Read-only, no Administrator needed.
+python slimbrave-windows.py --detect
+
+# See exactly what a profile would change. Still read-only.
+python browser_collection.py --preview balanced-daily --format json > plan.json
+python slimbrave-windows.py --preview-plan plan.json
+
+# Apply it. This one needs an Administrator PowerShell.
+python slimbrave-windows.py --apply-plan plan.json
+
+# Put Brave back to its own defaults.
+python slimbrave-windows.py --reset
+```
+
+Policy is written to `HKLM\SOFTWARE\Policies\BraveSoftware\Brave`, the
+machine-wide managed location — the Windows equivalent of the managed plist
+the macOS script writes. Restart Brave and check `brave://policy`.
+
+**The plan is validated identically on both platforms.** `--apply-plan`
+refuses any key or value that does not appear in
+`browser_collection/evidence/brave.json`, so this path cannot introduce a
+policy the project has not verified. That check lives in one file,
+`browser_collection/plan.py`, precisely so the two platforms cannot drift
+into disagreeing about what is allowed.
+
+Two differences from macOS worth knowing:
+
+- **Replace, not merge.** Applying a profile makes the managed policy set
+  exactly what the plan says; anything else already under that key is
+  removed. The preview counts those removals before you commit. macOS behaves
+  the same way — it rewrites the managed plist wholesale.
+- **No Configuration Profile step.** The registry is already persistent, so
+  there is nothing to approve afterwards in System Settings. Apply finishes
+  when the command returns.
+
+`SlimBrave.ps1` is still there and still works. It is the interactive,
+multi-browser tool; `slimbrave-windows.py` is the narrow one that applies a
+`profiles/` profile to Brave and nothing else.
+
+### Not on Windows yet
+
+The **desktop app is macOS only.** It shells out to `slimbrave-mac.py` and
+elevates through macOS's authorization dialog, neither of which has a Windows
+equivalent in the codebase yet. Windows users get the profiles through the
+command line above.
+
+
+---
+
 ## The desktop app (macOS, optional)
 
 `desktop/` holds **Spiral Slim 1.0.0**, a small native wizard over the same

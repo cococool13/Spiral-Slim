@@ -181,10 +181,10 @@ class CliTests(unittest.TestCase):
                 return example_preview(blocked=True)
 
         output = io.StringIO()
-        with (
-            patch.object(cli, "build_engine", return_value=BlockedEngine()),
-            redirect_stdout(output),
-        ):
+        # Nested rather than parenthesized: the repo's ruff target is py38,
+        # where `with (a, b):` is a syntax error.
+        with patch.object(cli, "build_engine", return_value=BlockedEngine()), \
+                redirect_stdout(output):
             result = cli.main([
                 "--preview",
                 "balanced-daily",
