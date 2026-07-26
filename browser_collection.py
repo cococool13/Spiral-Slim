@@ -157,6 +157,31 @@ def render_detection_text(payload):
     )
 
 
+def export_preview(engine, profile_id, browser_ids):
+    """Resolve a profile against a synthetic installation, not a detected one.
+
+    A plan describes a profile, not a machine: the same profile yields the
+    same policy whether or not Brave happens to be installed here. Resolving
+    against what is detected made `--export-plan` fail on any machine without
+    Brave — including every CI runner — with a message about unsupported
+    controls that named the wrong cause.
+
+    Checking the machine is the applier's job, and it does it: `--apply-plan`
+    detects, previews the real diff, and refuses when Brave is missing.
+    """
+    from types import MappingProxyType
+
+    installations = {}
+    states = {}
+    for browser_id, adapter in sorted(engine.adapters.items()):
+        if browser_ids is not None and browser_id not in browser_ids:
+            continue
+        installation = adapter.synthetic_installation(engine.platform)
+        installations[browser_id] = (installation,)
+        states[installation] = MappingProxyType({})
+    return engine.preview_for_installations(profile_id, installations, states)
+
+
 def plan_from_preview(payload):
     """Turn a preview into the plan document the entrypoints accept.
 
@@ -221,8 +246,8 @@ def main(argv=None):
             return 0
 
         if args.export_plan:
-            payload = preview_to_dict(engine.preview(
-                args.export_plan, browser_ids,
+            payload = preview_to_dict(export_preview(
+                engine, args.export_plan, browser_ids,
             ))
             if payload["blocked"]:
                 raise ConfigError(
@@ -232,8 +257,9 @@ def main(argv=None):
             plan = plan_from_preview(payload)
             if not plan["policy"]:
                 raise ConfigError(
-                    f"{args.export_plan} resolved no supported controls on "
-                    "this platform, so there is nothing to apply."
+                    f"{args.export_plan} resolved no controls this browser "
+                    f"supports on {engine.platform}, so there is nothing to "
+                    "apply."
                 )
             print(json.dumps(plan, indent=2, sort_keys=True))
             return 0
