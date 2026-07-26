@@ -19,6 +19,88 @@ jobs:
       - run: ruff check .
       - run: pytest -q
 
+  windows:
+    name: Windows build + real registry round-trip
+    runs-on: windows-latest
+    # The desktop app and slimbrave-windows.py were written on a Mac, where
+    # the Windows code paths cannot even be compiled. This job is the only
+    # place they run at all: it compiles them, then applies a real profile to
+    # a real registry on a throwaway runner and puts it back.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Python suite on Windows
+        run: |
+          pip install pytest
+          pytest -q
+
+      - name: Detect (read-only, no elevation)
+        run: python slimbrave-windows.py --detect --format json
+
+      - name: Export a plan and preview it
+        run: |
+          python browser_collection.py --export-plan balanced-daily > plan.json
+          type plan.json
+          python slimbrave-windows.py --preview-plan plan.json --format json
+
+      # The runner is an ephemeral VM with administrator rights and no Brave,
+      # so writing Brave policy here is free. This is the step that proves the
+      # registry path end to end: DWORD typing, replace-not-merge, read-back,
+      # and that --reset removes what it wrote.
+      - name: Apply for real, verify, then reset
+        shell: pwsh
+        run: |
+          python slimbrave-windows.py --apply-plan plan.json --format json
+          if ($LASTEXITCODE -ne 0) { throw "apply failed" }
+
+          $key = 'HKLM:\SOFTWARE\Policies\BraveSoftware\Brave'
+          $written = Get-ItemProperty -Path $key
+          $expected = (Get-Content plan.json | ConvertFrom-Json).policy
+          foreach ($name in $expected.PSObject.Properties.Name) {
+            $want = $expected.$name
+            $got = $written.$name
+            if ($want -is [bool]) { $want = [int]$want }
+            if ($got -ne $want) { throw "$name is '$got', expected '$want'" }
+          }
+          Write-Host "verified $($expected.PSObject.Properties.Name.Count) policies in the registry"
+
+          python slimbrave-windows.py --reset --format json
+          if (Test-Path $key) { throw "--reset left the policy key behind" }
+          Write-Host "reset removed the key"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Compiles the #[cfg(target_os = "windows")] branches for the first
+      # time: UAC elevation, the registry-backed open_policy_page, and the
+      # Windows Python search. cargo test then runs them.
+      - name: Build and test the desktop app
+        working-directory: desktop
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          cd src-tauri
+          cargo test
+          cd ..
+          pnpm tauri build
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spiral-slim-windows
+          path: |
+            desktop/src-tauri/target/release/bundle/**/*.exe
+            desktop/src-tauri/target/release/bundle/**/*.msi
+          if-no-files-found: warn
+
   powershell:
     name: PSScriptAnalyzer
     runs-on: ubuntu-latest

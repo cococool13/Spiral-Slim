@@ -45,6 +45,15 @@ def build_parser():
     actions.add_argument("--detect", action="store_true")
     actions.add_argument("--preview", metavar="PROFILE_ID")
     actions.add_argument(
+        "--export-plan",
+        dest="export_plan",
+        metavar="PROFILE_ID",
+        help=(
+            "Write the plan document the platform entrypoint applies. "
+            "Read-only; the plan changes nothing until you apply it."
+        ),
+    )
+    actions.add_argument(
         "--preview-custom",
         dest="preview_custom",
         action="store_true",
@@ -80,11 +89,12 @@ def parse_args(argv=None):
         args.catalog
         or args.detect
         or args.preview is not None
+        or args.export_plan is not None
         or args.preview_custom
     ):
         parser.error(
             "one of the arguments --catalog --detect --preview "
-            "--preview-custom is required"
+            "--export-plan --preview-custom is required"
         )
     if args.modules is not None and not args.preview_custom:
         parser.error("--modules is only valid with --preview-custom")
@@ -147,6 +157,35 @@ def render_detection_text(payload):
     )
 
 
+def plan_from_preview(payload):
+    """Turn a preview into the plan document the entrypoints accept.
+
+    The preview is a report for a person; a plan is the exact policy map for
+    a machine, and `browser_collection.plan.load_plan` accepts only the four
+    fields below. Deriving one from the other here means the command line can
+    produce a plan at all — before this, only the desktop app could, so the
+    documented CLI flow on Windows did not work.
+
+    Only `preview_ready` controls are included, for the same reason the
+    desktop bridge does it: an unsupported control has no verified mapping,
+    and the entrypoint would refuse the whole plan over it.
+    """
+    policy = {}
+    for browser in payload.get("browsers", ()):
+        for control in browser.get("controls", ()):
+            if control.get("support") != "preview_ready":
+                continue
+            name = control.get("vendor_name")
+            if name:
+                policy[name] = control["desired"]
+    return {
+        "schema_version": payload["schema_version"],
+        "profile_id": payload["profile"]["id"],
+        "plan_hash": payload["plan_hash"],
+        "policy": policy,
+    }
+
+
 def emit(payload, output_format, text_renderer):
     if output_format == "json":
         print(json.dumps(payload, indent=2, sort_keys=True))
@@ -179,6 +218,24 @@ def main(argv=None):
                 in engine.detect(browser_ids).items()
             }
             emit(payload, args.format, render_detection_text)
+            return 0
+
+        if args.export_plan:
+            payload = preview_to_dict(engine.preview(
+                args.export_plan, browser_ids,
+            ))
+            if payload["blocked"]:
+                raise ConfigError(
+                    f"{args.export_plan} cannot be applied here: it needs a "
+                    "policy this browser does not support on this platform."
+                )
+            plan = plan_from_preview(payload)
+            if not plan["policy"]:
+                raise ConfigError(
+                    f"{args.export_plan} resolved no supported controls on "
+                    "this platform, so there is nothing to apply."
+                )
+            print(json.dumps(plan, indent=2, sort_keys=True))
             return 0
 
         if args.preview_custom:

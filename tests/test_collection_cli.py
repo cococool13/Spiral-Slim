@@ -4,10 +4,12 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
+from browser_collection.plan import load_plan
 from browser_collection.models import (
     BrowserInstallation,
     BrowserPlan,
@@ -237,3 +239,67 @@ class RenderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ExportPlanTests(unittest.TestCase):
+    """`--export-plan` is what makes the command-line flow work at all.
+
+    Before it existed the documented Windows steps piped `--preview` output
+    into `--apply-plan`, and the applier rejected it: a preview is a report
+    for a person, a plan is the exact policy map for a machine. Only the
+    desktop app could build one.
+    """
+
+    def setUp(self):
+        self.cli = load_cli_module()
+
+    def run_cli(self, argv):
+        output = io.StringIO()
+        with redirect_stdout(output):
+            code = self.cli.main(argv)
+        return code, output.getvalue()
+
+    def test_the_exported_plan_is_accepted_by_the_shared_validator(self):
+        code, out = self.run_cli(["--export-plan", "balanced-daily"])
+        self.assertEqual(code, 0)
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".json", delete=False, encoding="utf-8",
+        ) as handle:
+            handle.write(out)
+            path = handle.name
+        profile_id, plan_hash, policy = load_plan(path)
+        self.assertEqual(profile_id, "balanced-daily")
+        self.assertEqual(len(plan_hash), 64)
+        self.assertTrue(policy)
+
+    def test_the_plan_carries_only_the_four_fields_load_plan_allows(self):
+        _, out = self.run_cli(["--export-plan", "balanced-daily"])
+        self.assertEqual(
+            set(json.loads(out)),
+            {"schema_version", "profile_id", "plan_hash", "policy"},
+        )
+
+    def test_unsupported_controls_are_left_out(self):
+        payload = {
+            "schema_version": 1,
+            "plan_hash": "a" * 64,
+            "profile": {"id": "x"},
+            "browsers": [{
+                "controls": [
+                    {"vendor_name": "Kept", "desired": True,
+                     "support": "preview_ready"},
+                    {"vendor_name": "", "desired": "x",
+                     "support": "unsupported"},
+                ],
+            }],
+        }
+        plan = self.cli.plan_from_preview(payload)
+        self.assertEqual(plan["policy"], {"Kept": True})
+
+    def test_every_bundled_profile_exports_an_applicable_plan(self):
+        for profile_id in ("balanced-daily", "maximum-performance",
+                           "minimal-debloated"):
+            with self.subTest(profile=profile_id):
+                code, out = self.run_cli(["--export-plan", profile_id])
+                self.assertEqual(code, 0)
+                self.assertTrue(json.loads(out)["policy"])

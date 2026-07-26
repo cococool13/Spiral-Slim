@@ -90,7 +90,7 @@ thing on either.
 python slimbrave-windows.py --detect
 
 # See exactly what a profile would change. Still read-only.
-python browser_collection.py --preview balanced-daily --format json > plan.json
+python browser_collection.py --export-plan balanced-daily > plan.json
 python slimbrave-windows.py --preview-plan plan.json
 
 # Apply it. This one needs an Administrator PowerShell.
