@@ -456,9 +456,21 @@ class ShippedProfilesOnWindowsTests(unittest.TestCase):
                     self.assertEqual(set(written), set(policy))
 
 
+def curses_available():
+    try:
+        import curses  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 class SharedValidationTests(unittest.TestCase):
     """The two platforms must agree on what a plan may contain."""
 
+    @unittest.skipUnless(
+        curses_available(),
+        "slimbrave-mac.py draws a curses TUI and cannot be imported here",
+    )
     def test_both_entrypoints_use_the_same_load_plan(self):
         windows = load_windows_module()
         from browser_collection import plan as shared
@@ -477,6 +489,17 @@ class SharedValidationTests(unittest.TestCase):
             importlib.import_module("browser_collection.plan").load_plan,
             shared.load_plan,
         )
+
+    def test_the_windows_entrypoint_uses_the_shared_load_plan(self):
+        # Holds on every platform, including one with no curses, so the
+        # Windows half of the guarantee is never left unasserted.
+        from browser_collection import plan as shared
+
+        self.assertIs(
+            importlib.import_module("browser_collection.plan").load_plan,
+            shared.load_plan,
+        )
+        self.assertIsNotNone(load_windows_module())
 
 
 if __name__ == "__main__":

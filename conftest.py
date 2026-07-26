@@ -26,8 +26,17 @@ if str(ROOT) not in sys.path:
 # Windows raises ModuleNotFoundError before a single test runs — which is
 # exactly what happened the first time the Windows job ran, and it hid
 # everything that came after it.
+#
+# All three load an entrypoint that draws that TUI. They test the macOS and
+# Linux side; there is nothing in them for Windows to assert.
+_NEEDS_CURSES = (
+    "tests/test_slimbrave.py",
+    "tests/test_plan_interface.py",
+    "tests/test_custom_profile.py",
+)
+
 collect_ignore = []
 try:  # pragma: no cover - the branch taken depends on the host
     import curses  # noqa: F401
 except ImportError:
-    collect_ignore.append("tests/test_slimbrave.py")
+    collect_ignore.extend(_NEEDS_CURSES)
