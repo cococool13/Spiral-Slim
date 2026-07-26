@@ -6,7 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 from browser_collection.plan import load_plan
@@ -241,6 +241,21 @@ if __name__ == "__main__":
     unittest.main()
 
 
+def platform_supported():
+    """True when the engine can resolve controls for this host.
+
+    `--export-plan` runs the real engine, which resolves nothing on a platform
+    with no adapter mapping. On Linux that refusal is correct behaviour, not a
+    failure, so the tests that need a plan skip and a separate test asserts the
+    refusal.
+    """
+    return sys.platform in ("darwin", "win32")
+
+
+@unittest.skipUnless(
+    platform_supported(),
+    "the engine resolves no controls on this platform",
+)
 class ExportPlanTests(unittest.TestCase):
     """`--export-plan` is what makes the command-line flow work at all.
 
@@ -303,3 +318,17 @@ class ExportPlanTests(unittest.TestCase):
                 code, out = self.run_cli(["--export-plan", profile_id])
                 self.assertEqual(code, 0)
                 self.assertTrue(json.loads(out)["policy"])
+
+
+class ExportPlanOnUnsupportedPlatformTests(unittest.TestCase):
+    @unittest.skipIf(
+        platform_supported(),
+        "only meaningful where the engine has no adapter mapping",
+    )
+    def test_export_refuses_and_says_why(self):
+        cli = load_cli_module()
+        errors = io.StringIO()
+        with redirect_stderr(errors):
+            code = cli.main(["--export-plan", "balanced-daily"])
+        self.assertEqual(code, 2)
+        self.assertIn("no supported controls", errors.getvalue())
