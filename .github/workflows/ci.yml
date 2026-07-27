@@ -114,3 +114,17 @@ jobs:
           $results | Format-Table -AutoSize | Out-String | Write-Host
           # Warnings are informational; only hard errors fail the build.
           if ($results | Where-Object Severity -eq 'Error') { exit 1 }
+
+  collection:
+    name: collection vitest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      # The browser_collection TypeScript layer ships 163 tests that no job
+      # was running, so regressions in it could not fail the build.
+      - run: npm ci
+      - run: npm run test:run

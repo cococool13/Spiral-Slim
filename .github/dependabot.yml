@@ -1,0 +1,51 @@
+version: 2
+
+# Security alerts were on but no update config existed, so nothing opened PRs
+# and the advisories accumulated silently. Grouped so routine bumps arrive as
+# one PR per ecosystem instead of a stream of individual ones.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      patch-and-minor:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: npm
+    directory: /desktop
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      patch-and-minor:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: cargo
+    directory: /desktop/src-tauri
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      patch-and-minor:
+        update-types:
+          - minor
+          - patch
+
+  # No pip entry on purpose: the scripts are stdlib-only and there is no
+  # requirements.txt or pyproject.toml, so the ecosystem has nothing to read.
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns:
+          - "*"
