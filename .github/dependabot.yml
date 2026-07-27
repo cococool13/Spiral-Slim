@@ -3,6 +3,19 @@ version: 2
 # Security alerts were on but no update config existed, so nothing opened PRs
 # and the advisories accumulated silently. Grouped so routine bumps arrive as
 # one PR per ecosystem instead of a stream of individual ones.
+#
+# Majors are ignored for npm and cargo. Grouping only covers minor/patch, so
+# every major arrived as its own PR — that is what produced 9 PRs on the first
+# run (zod 3->4, vite 7->8, typescript 5->7, @types/node 20->26, ...). Majors
+# are done deliberately instead: the vitest 1->4 upgrade needed a verified
+# coverage run and a rejected brace-expansion override to get right.
+#
+# This does NOT mute security updates. Dependabot security PRs bypass `ignore`
+# entirely, so a CVE in any of these still opens a PR.
+#
+# github-actions deliberately keeps majors: that ecosystem is grouped into a
+# single PR, so a major there costs one PR rather than many, and stale actions
+# are their own problem.
 updates:
   - package-ecosystem: npm
     directory: /
@@ -14,6 +27,9 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /desktop
@@ -25,6 +41,9 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: cargo
     directory: /desktop/src-tauri
@@ -39,6 +58,9 @@ updates:
 
   # No pip entry on purpose: the scripts are stdlib-only and there is no
   # requirements.txt or pyproject.toml, so the ecosystem has nothing to read.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
