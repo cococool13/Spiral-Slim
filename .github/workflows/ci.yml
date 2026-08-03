@@ -71,7 +71,7 @@ jobs:
           if (Test-Path $key) { throw "--reset left the policy key behind" }
           Write-Host "reset removed the key"
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.0.9
         with:
           version: 11.9.0
       - uses: actions/setup-node@v7
