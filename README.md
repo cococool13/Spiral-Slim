@@ -1,3 +1,12 @@
+> [!IMPORTANT]
+> **Spiral Slim has moved.** The source now lives in the Spiral monorepo at
+> [`github.com/cococool13/spiral`](https://github.com/cococool13/spiral)
+> under [`apps/slim`](https://github.com/cococool13/spiral/tree/main/apps/slim),
+> alongside the other Spiral apps. This repository is archived and read-only.
+>
+> The **v1.0.0 macOS download stays here** — the release below is the official
+> one for that version. Everything after it ships from `cococool13/spiral`.
+
 <div align="center">
 
 # Spiral Slim
